@@ -44,7 +44,7 @@ import imageio  # The library that provides an easy interface to read and write 
 def make_generator_model():
     model = tf.keras.Sequential()
     # model.add(tf.keras.layers.Reshape((-1,-1,3)))
-    model.add(Dense(8 * 8 * 256, use_bias=False, input_shape=(1000,)))
+    model.add(Dense(8 * 8 * 256, use_bias=False, input_shape=(100,)))
     model.add(BatchNormalization())
     model.add(LeakyReLU())
 
@@ -125,6 +125,15 @@ def generate_and_save_images(model, epoch, test_input):
     plt.cla()
     plt.clf()
 
+def generate_and_show_image(model, test_input):
+    # Notice `training` is set to False.
+    # This is so all layers run in inference mode (batchnorm).
+    # 1 - Generate images
+    predictions = model(test_input, training=False)
+    # 2 - Plot the generated images
+    plt.imshow((predictions[0, :, :, :] * 127.5 + 127.5).numpy().astype(np.int32))
+    # 3 - Save the generated images
+    plt.show()
 
 print("yo we goin")
 
@@ -171,14 +180,17 @@ checkpoint = tf.train.Checkpoint(
     generator=generator,
     discriminator=discriminator,
 )
-checkpoint.restore(tf.train.latest_checkpoint(checkpoint_dir))
+cp_name = tf.train.latest_checkpoint(checkpoint_dir)
+checkpoint.restore(cp_name)
 
-EPOCHS = 3000
-
+START_EPOCH = 0
+if cp_name is not None:
+    START_EPOCH = int(cp_name.split("-")[1])*10
+EPOCHS = 3500 + START_EPOCH
 # We will reuse this seed overtime (so it's easier)
 # to visualize progress in the animated GIF)
 num_examples_to_generate = 36
-noise_dim = 1000
+noise_dim = 100
 seed = tf.random.normal([num_examples_to_generate, noise_dim])
 
 # tf.function annotation causes the function
@@ -240,7 +252,7 @@ def train_step(images):
 def train(dataset, epochs):
     print("TRAININ")
     # A. For each epoch, do the following:
-    for epoch in range(epochs):
+    for epoch in range(START_EPOCH, epochs):
         start = time.time()
         # 1 - For each batch of the epoch,
         for image_batch in dataset:
@@ -248,13 +260,15 @@ def train(dataset, epochs):
             # we just declared above
             train_step(image_batch)
 
-        # 2 - Produce images for the GIF as we go
-        display.clear_output(wait=True)
-        generate_and_save_images(generator, epoch + 1, seed)
 
         # 3 - Save the model every 5 epochs as
         # a checkpoint, which we will use later
-        if (epoch + 1) % 5 == 0:
+        if (epoch + 1) % 10 == 0:
+	        # 2 - Produce images for the GIF as we go
+            display.clear_output(wait=True)
+            seed = tf.random.normal([num_examples_to_generate, noise_dim])
+            generate_and_save_images(generator, epoch + 1, seed)
+            
             checkpoint.save(file_prefix=checkpoint_prefix)
 
         # 4 - Print out the completed epoch no. and the time spent
@@ -267,14 +281,19 @@ def train(dataset, epochs):
 
 train(train_dataset, EPOCHS)
 
-checkpoint.restore(tf.train.latest_checkpoint(checkpoint_dir))
+cp_name = tf.train.latest_checkpoint(checkpoint_dir)
+checkpoint.restore(cp_name)
 
-# Display a single image using the epoch number
-def display_image(epoch_no):
-    return Image.open("x/image_at_epoch_{:04d}.png".format(epoch_no))
+print("trying to gen?")
 
+# try:
+#     while True:
+#         generate_and_show_image(generator, tf.random.normal([5, noise_dim]))
+# except Exception as err:
+#     print(err)
+#     sys.exit(0)
 
-display_image(EPOCHS)
+# sys.exit(0)
 
 anim_file = "dcgan.gif"
 

@@ -5,4 +5,7 @@ dll_x64
 *.json
 TensorRT-8.2.1.8
 x
+x_old
 training_checkpoints
+training_checkpoints_old
+.env
