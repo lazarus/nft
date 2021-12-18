@@ -16,3 +16,7 @@ python get_images.py
 python make_np_array.py
 python gan.py
 ```
+
+output
+-----
+![output](ezgif.com-gif-maker.gif)
